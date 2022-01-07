@@ -1,0 +1,600 @@
+---
+title: "El mercado de los videojuegos"
+subtitle: "Alejandro García Segarra (agarse4@alumni.uv.es)" 
+author: "Universitat de València"
+date: "Diciembre de 2021 (actualizado el `r format(Sys.time(), '%d-%m-%Y')`)"
+output:
+  html_document:
+    code_folding: hide
+    #css: "./assets/my_css_file.css"
+    theme: paper
+    highlight: textmate 
+    toc: true
+    toc_depth: 3 
+    toc_float: 
+      collapsed: true
+      smooth_scroll: true
+    self_contained: true
+    number_sections: false
+    df_print: kable
+    code_download: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages-setup, include = FALSE}
+library(tidyverse)
+library(klippy)  #- remotes::install_github("rlesur/klippy")
+library(knitr)
+library(rio)
+library(ggplot2)
+library(ggThemeAssist)
+library(patchwork)
+library( gghighlight)
+library(plotly)
+library(gt)
+library(gtExtras)
+library(viridis)  #install.packages("viridis")
+library(scales)
+library(DT)   #remotes::install_github('rstudio/DT')
+library(paletteer)
+
+
+```
+
+```{r chunk-setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, 
+                      #results = "hold",
+                      cache = FALSE, cache.path = "/caches/", comment = "#>",
+                      #fig.width = 7, #fig.height= 7,   
+                      #out.width = 7, out.height = 7,
+                      collapse = TRUE,  fig.show = "hold",
+                      fig.asp = 0.628, out.width = "75%", fig.align = "center")
+knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
+```
+
+
+```{r options-setup, include = FALSE}
+options(scipen = 999) #- para quitar la notación científica
+options("yaml.eval.expr" = TRUE) 
+```
+
+
+```{r klippy, echo = FALSE}
+klippy::klippy(position = c("top", "right")) #- remotes::install_github("rlesur/klippy")
+```
+
+
+<hr class="linea-black">
+
+<div style="text-align: justify"><div/>
+
+<!-- El párrafo de abajo has de dejarlo casi igual, solo HAS de SUSTITUIR "perezp44" por tu usuario de Github-->
+Trabajo elaborado para la asignatura "Programación y manejo de datos en la era del Big Data" de la Universitat de València durante el curso 2021-2022. El repo del trabajo está [aquí](https://github.com/agarse4/trabajo_BigData){target="_blank"}. 
+
+<!-- El párrafo de abajo has de dejarlo exactamente igual, NO HAS DE CAMBIAR NADA-->
+
+La página web de la asignatura y los trabajos de mis compañeros pueden verse [aquí](https://perezp44.github.io/intro-ds-21-22-web/07-trabajos.html){target="_blank"}.
+
+
+<hr class="linea-red">
+
+# **1. Introducción**
+
+Los videojuegos son un elemento con creciente importancia en la vida de las personas. Por tanto, es interesante conocer el funcionamiento de su mercado, por ejemplo, cuales son los videojuegos que más han triunfado, a que consola pertenecen, etc. Este trabajo pretende dar respuesta a estos aspectos, a través de distintas gráficas y tablas elaboradas con r. 
+
+
+```{r}
+
+```
+
+
+#  **2. Datos**
+
+A partir de la página web de [kaggle](https://www.kaggle.com), he obtenido y manipulado los datos del trabajo  del siguiente [dataset](https://www.kaggle.com/sidtwr/videogames-sales-dataset)
+
+
+## 2.1. Procesando los datos
+
+El dataset se compone de tres data frames, los cuales estan formados por distintos videojuegos, la fecha de lanzamiento de los cuales se encuentra entre 1980 y 2020. El primero de ellos esta integrado por todos los videojuegos, mientras que los otros dos dataframes se centran en los videojuegos de sus respectivas plataformas. Cabe destacar que durante el análisis, a partir de 2017 existen una gran cantidad de NA, por lo que la gran mayoría de los apartados abarcan hasta 2016. Por otro lado, el Data set tiene una visión curiosa del mundo, ya que lo divide en dos continentes, un país y el resto, por lo que hace que las comparaciones territoriales no sean muy reveladoras. 
+
+```{r, eval = TRUE}
+#en primer lugar importamos los datos
+
+juegos_ps4 <- rio::import(file = "./datos/PS4_GamesSales.csv")
+juegos <- rio::import(file = "./datos/Video_Games_Sales_as_at_22_Dec_2016.csv")
+juegos_XboxOne <- rio::import(file = "./datos/XboxOne_GameSales.csv")
+
+
+#analizamos de que tipo son las variables de los df
+str(juegos_ps4)
+str(juegos)
+str(juegos_XboxOne)
+
+
+
+#ventas por regiones y total en cada año
+ ventas_por_regiones <- juegos %>%
+  group_by(Year_of_Release) %>% 
+  mutate(Total_ventas = sum(Global_Sales)) %>%
+  mutate(NA_ventas = sum(NA_Sales)) %>% 
+  mutate(EU_ventas = sum(EU_Sales)) %>% 
+  mutate(JP_ventas = sum(JP_Sales)) %>%
+  mutate(Otros_ventas = sum(Other_Sales)) %>%
+  select(Year_of_Release, Total_ventas, NA_ventas, EU_ventas, JP_ventas, Otros_ventas) %>% 
+  distinct(Year_of_Release, Total_ventas, NA_ventas, EU_ventas, JP_ventas, Otros_ventas) %>% 
+  arrange(Year_of_Release) %>% 
+  filter(.,Year_of_Release >=1980, Year_of_Release<=2016)
+ 
+ # a partir de 2017 los datos son poco ilustrativos, además de aparecer una gran cantidad de NA, por lo que los excluims de este apartado.
+ 
+ 
+ # videojuegos con mayores ventas en cada continente  
+ mas_exitosos_global <- juegos %>% slice_max(Global_Sales, n=5)
+ 
+ mas_exitosos_EU <- juegos %>% slice_max(EU_Sales, n=5)
+
+ mas_exitosos_JP <- juegos %>% slice_max(JP_Sales, n=5)
+
+ mas_exitosos_NA <- juegos %>% slice_max(NA_Sales, n=5)
+ 
+ mas_exitosos_Otros <- juegos %>% slice_max(Other_Sales, n=5)
+ 
+ #creamos los mismos df pero solo el top 3 de cada region 
+ 
+  mas_exitosos_global_v2 <- juegos %>% slice_max(Global_Sales, n=3)
+ 
+ mas_exitosos_EU_v2 <- juegos %>% slice_max(EU_Sales, n=3)
+
+ mas_exitosos_JP_v2 <- juegos %>% slice_max(JP_Sales, n=3)
+
+ mas_exitosos_NA_v2 <- juegos %>% slice_max(NA_Sales, n=3)
+ 
+ mas_exitosos_Otros_v2 <- juegos %>% slice_max(Other_Sales, n=3)
+ 
+ # creamos un df con los top 3 videojuegos de cada rgión, para analizar distintos aspectos
+ 
+ mas_exitosos_all <- full_join(mas_exitosos_global_v2, mas_exitosos_EU_v2) %>% 
+   select(Name, Platform, Year_of_Release, Genre, Publisher, NA_Sales, EU_Sales, JP_Sales, Other_Sales, Global_Sales) %>% 
+   full_join(., mas_exitosos_JP_v2) %>% 
+   full_join(., mas_exitosos_NA_v2) %>% 
+   full_join(., mas_exitosos_Otros_v2) %>% 
+   distinct(Name, Platform, Year_of_Release, Genre, Publisher, NA_Sales, EU_Sales, JP_Sales, Other_Sales, Global_Sales)
+ 
+ #desarrolladoras
+ mas_exitosas_desarrolladoras <- mas_exitosos_all %>%  group_by(Publisher) %>% 
+   mutate(n_desarrolladoras = sum(NN = n())) %>% 
+   select(Publisher, n_desarrolladoras) %>% 
+   distinct(Publisher, n_desarrolladoras)
+ 
+ #Género
+  mas_exitosos_generos <- mas_exitosos_all %>%  group_by(Genre) %>% 
+   mutate(n_generos = sum(NN = n())) %>% 
+   select(Genre, n_generos) %>% 
+   distinct(Genre, n_generos)
+ 
+ 
+ #Plataforma
+ mas_exitosos_plataforma <- mas_exitosos_all %>%  group_by(Platform) %>% 
+   mutate(n_plataformas = sum(NN = n())) %>% 
+   select(Platform, n_plataformas) %>% 
+   distinct (Platform, n_plataformas)
+ 
+ 
+ #A continuación pasaré a comparar las ventas de las dos penúltimas generaciones de consolas, es decir, la Ps4 y la XboxOne. Necesito la variable de platform para el analisis posterior, por lo que introduciré manualmente en los dos df la variable. No los fusiono con el el df juegos ya que tiene el problema de los NA a partir de 2017.
+juegos_ps4[, c(2)] <- sapply(juegos_ps4[, c(2)], as.numeric)
+
+ 
+ juegos_ps4_ventas <- juegos_ps4 %>% mutate(Platform = "PS4") %>% 
+   group_by(Year) %>% 
+   mutate(Ventas_totales = sum(Global)) %>% 
+   distinct(Year, Ventas_totales, Platform) %>% 
+   filter (Year >= 2013, Year <= 2018)
+ 
+ 
+juegos_XboxOne[, c(3)] <- sapply(juegos_XboxOne[, c(3)], as.numeric)
+ 
+ juegos_XboxOne_ventas <- juegos_XboxOne %>% mutate(Platform = "XboxOne") %>% 
+   group_by(Year) %>% 
+   mutate(Ventas_totales = sum(Global)) %>% 
+   distinct(Year, Ventas_totales, Platform) %>% 
+   filter (Year >= 2013, Year <= 2018)
+
+ 
+ # A continuación junto los dos df para poder hacer las comparaciones
+juegos_XboxOne_ps4 <- full_join(juegos_ps4_ventas, juegos_XboxOne_ventas)
+
+#Por último de este apartado realizamos una comparación entre las ventas totales de cada plataforma
+ventas_totales_plataforma <- juegos_XboxOne_ps4 %>% 
+  group_by(Platform) %>% 
+  mutate(Ventas = sum(Ventas_totales)) %>% 
+  distinct(Ventas, Platform) %>% 
+  ungroup(Platform) %>% 
+  mutate(final_ventas = sum(Ventas)) %>% 
+  mutate(ventas_ventas_totales = Ventas / final_ventas) %>% 
+  mutate(porcentaje = scales::percent(ventas_ventas_totales))
+
+#Tabla del juego más vendido de cada año, de 1980 a 2016.
+
+juego_del_año <- juegos %>% 
+  group_by(Year_of_Release) %>% 
+  slice_max(n = 1, Global_Sales) %>% 
+  ungroup(Year_of_Release) %>% 
+  filter(Year_of_Release >= 1980, Year_of_Release <= 2016) %>% 
+  select(Year_of_Release, Name, Platform, Genre, Publisher, Global_Sales) %>% 
+  rename(Videojuego = Name, Plataforma = Platform, Año = Year_of_Release, Genero = Genre, Desarrolladora = Publisher, Ventas = Global_Sales)
+  
+
+#ventas de cada género
+
+ juegos <- na.omit(juegos) #Elimino las filas que contengan na
+ 
+ ventas_categoria <- juegos %>% 
+  group_by(Genre) %>% 
+   mutate(Ventas_género = sum(Global_Sales)) %>% 
+   mutate(Número_de_videojuegos = sum(NN = n())) %>%  
+   mutate(Ventas_por_videojuego = Ventas_género / Número_de_videojuegos) %>% 
+  distinct(Ventas_género, Número_de_videojuegos, Ventas_por_videojuego ) %>% 
+ ungroup() %>% 
+   arrange(desc(Ventas_por_videojuego)) %>% 
+   rename(Género = Genre)
+ 
+ 
+ #a continuación, de cada plataforma
+ 
+ ventas_platform <- juegos %>% 
+  group_by(Platform) %>% 
+   mutate(Ventas_plataforma = sum(Global_Sales)) %>% 
+   mutate(Número_de_videojuegos = sum(NN = n())) %>%  
+   mutate(Ventas_por_videojuego = Ventas_plataforma / Número_de_videojuegos) %>% 
+  distinct(Ventas_plataforma, Número_de_videojuegos, Ventas_por_videojuego ) %>% 
+ ungroup() %>% 
+   arrange(desc(Ventas_por_videojuego)) %>% 
+   rename(Plataforma = Platform)
+ 
+ 
+```
+
+
+
+# **3. El mercado de los videojuegos**
+
+## 3.1 Análisis general
+
+A partir del gráfico mostrado a continuación, puede verse la evolución del mercado de los videojuegos. Los videojuegos comienzan a tener cifras considerativas de ventas a partir de 1994, teniendo una increible escalada desde el 2000 hasta el 2008. A partir de entonces las cifras han ido cayendo, propiciado en parte por la cada vez mayor existencia y consolidación de videojuegos de adquisición gratuita, pero que incluyen micropagos dentro del propio videojuego.  
+
+En relación con las regiones, Norte América siempre ha sido pionera en la venta de videojuegos, seguida por Europa. En los últimos años las diferencias entre ambas regiones se han ido aproximando.
+
+```{r, fig.width=10, fig.height=10}
+ #Para poder utilizar geom_line, es necesario que la variable años sea numérica
+ str(ventas_por_regiones)
+ventas_por_regiones[, c(1)] <- sapply(ventas_por_regiones[, c(1)], as.numeric)
+ str(ventas_por_regiones)
+
+aa <- ggplot(ventas_por_regiones) + geom_point(aes(Year_of_Release, Total_ventas, color = "Total_ventas")) + 
+   geom_line(aes(Year_of_Release, Total_ventas, color = "Total_ventas")) + 
+   geom_point(aes(Year_of_Release, NA_ventas, color= "NA_ventas")) + 
+   geom_line(aes(Year_of_Release, NA_ventas, color = "NA_ventas")) + 
+   geom_point(aes(Year_of_Release, EU_ventas, color = "EU_ventas")) + 
+   geom_line(aes(Year_of_Release, EU_ventas, color = "EU_ventas")) + 
+   geom_point(aes(Year_of_Release, JP_ventas, color = "JP_ventas")) + 
+   geom_line(aes(Year_of_Release, JP_ventas, color = "JP_ventas")) +
+   geom_point(aes(Year_of_Release, Otros_ventas, color = "Otros_ventas")) + 
+   geom_line(aes(Year_of_Release, Otros_ventas, color = "Otros_ventas")) + 
+   scale_x_continuous(breaks = seq(1980,2016,2)) + 
+    scale_y_continuous(breaks = seq(0,680,50)) + 
+   theme(panel.grid.major = element_line(colour = "gray90",
+    size = 0.3), panel.grid.minor = element_line(colour = "gray90"),
+    axis.text.x = element_text(angle = 90),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(colour = NA,
+        size = 0.7)) +labs(title = "Cifra de ventas por regiones entre 1980 y 2016",
+    x = "Año", y = "Cifra de ventas, en millones de euros ", colour = "Regiones") + theme(axis.title = element_text(size = 13),
+    axis.text = element_text(size = 15),
+    plot.title = element_text(size = 17),
+    legend.text = element_text(size = 15),
+    legend.title = element_text(size = 15)) + theme(axis.title = element_text(size = 15))
+ 
+ aa
+ 
+ 
+ 
+
+```
+
+
+Otro forma más concreta de estudiar el mercado es viendo cual ha sido el *best seller* de cada año, como muestra la tabla siguiente. La gama de colores hace referencia a las ventas totales, yendo de más oscuro a menor cifra de ventas a más claro. De la tabla podemos extraer que, el videojuego más vendido con una gran diferencia es el Wii Sports de Wii.  
+
+Los años de mayores ventas de videojuegos se produjeron tras la salida de Wii, el 19 de noviembre de 2006. La videoconsola supuso una revolución, ya que combinaba los movimientos de la persona con el propio videojuego. Desde su salida, la Wii mantuvo un videojuego como *best seller* los cuatro años siguientes, como se muestra en la tabla, pero a partir de entonces el boom inicial fué desinchandose. 
+ 
+```{r}
+#Tabla de videojuego más importante de cada año
+
+gt_tabla <- juego_del_año %>% gt()
+
+
+gt_tabla <- gt_tabla %>% tab_header(title = md("**Videojuego más vendido cada año**"),
+                     subtitle = md("Ventas en millones de euros")) %>% 
+  tab_footnote("Videojuego más vendido", cells_body((Videojuego), row = 27)) 
+
+q_colors =  19 
+v_colors =  viridis(q_colors, option ="D")
+
+gt_tabla <- gt_tabla %>%  data_color(columns=vars("Ventas"), 
+             color=scales::col_bin( bins=c(2, 4, 6, 8, 10, 20, 30, 40, 50, 60,70, 80, 90), 
+             palette = v_colors, 
+             domain=c(0, 90)) )
+
+gt_tabla
+```
+
+
+
+
+## 3.2 Top 3 {.tabset}
+
+A continuación se muestra en un gráfico combinado los 5 juegos más vendido de cada región, destacando 3, para realizar una análisis posterior. Los resultados de las  regiones tienen coincidencias, como por ejemplo que el Wii Sports aparece en todas menos en Japon, donde han triunfado mayoritariamente los juegos de Pokemon. Por otro lado, el Super Mario Bros esta presente en 3 de las 4 regiones.
+
+```{r, fig.width=14, fig.height=14}
+bb <- ggplot(mas_exitosos_global, aes(x = reorder(Name,Global_Sales), y = Global_Sales)) + geom_bar(stat = "identity", fill = "red") + coord_flip() +
+  gghighlight::gghighlight(Name %in% c("Wii Sports", "Super Mario Bros.", "Mario Kart Wii")) + theme(panel.grid.major = element_line(colour = "gray90"),
+    panel.grid.minor = element_line(colour = "gray90"),
+    panel.background = element_rect(fill = NA)) +labs(x = "Videojuegos", y = "Cifra de ventas, en millones de euros") + theme(axis.title = element_text(size = 18),
+    axis.text = element_text(size = 17)) + theme(plot.title = element_text(size = 19,
+    hjust = 0.5)) +labs(title = "Totales")
+  
+cc <- ggplot(mas_exitosos_EU, aes(x = reorder(Name,EU_Sales), y = EU_Sales)) + 
+  geom_bar(stat = "identity", fill = "red") + coord_flip()  + 
+  gghighlight::gghighlight(Name %in% c("Wii Sports", "Nintendogs", "Mario Kart Wii")) + 
+  theme(panel.grid.major = element_line(colour = "gray90"),
+    panel.grid.minor = element_line(colour = "gray90"),
+    panel.background = element_rect(fill = NA)) +labs(x = "Videojuegos", y = "Cifra de ventas, en millones de euros") + theme(axis.title = element_text(size = 18),
+    axis.text = element_text(size = 17)) + theme(plot.title = element_text(size = 19,
+    hjust = 0.5)) +labs(title = "Europa")
+
+
+dd <- ggplot(mas_exitosos_NA, aes(x = reorder(Name,NA_Sales), y = NA_Sales)) + 
+  geom_bar(stat = "identity", fill = "red") + coord_flip()  + 
+  gghighlight::gghighlight(Name %in% c("Wii Sports", "Super Mario Bros.", "Duck Hunt")) +  
+  theme(panel.grid.major = element_line(colour = "gray90"),
+    panel.grid.minor = element_line(colour = "gray90"),
+    panel.background = element_rect(fill = NA)) +labs(x = "Videojuegos", y = "Cifra de ventas, en millones de euros") + theme(axis.title = element_text(size = 18),
+    axis.text = element_text(size = 17)) + theme(plot.title = element_text(size = 19,
+    hjust = 0.5)) +labs(title = "Norte América")
+
+ee <- ggplot(mas_exitosos_JP, aes(x = reorder(Name,JP_Sales), y = JP_Sales)) + 
+  geom_bar(stat = "identity", fill = "red") + coord_flip()  + 
+  gghighlight::gghighlight(Name %in% c("Pokemon Red/Pokemon Blue", "Super Mario Bros.", "Pokemon Gold/Pokemon Silver")) + theme(panel.grid.major = element_line(colour = "gray90"),
+    panel.grid.minor = element_line(colour = "gray90"),
+    panel.background = element_rect(fill = NA)) +labs(x = "Videojuegos", y = "Cifra de ventas, en millones de euros") + theme(axis.title = element_text(size = 18),
+    axis.text = element_text(size = 17)) + theme(plot.title = element_text(size = 19,
+    hjust = 0.5)) +labs(title = "Japón") 
+
+ff <-  ggplot(mas_exitosos_Otros, aes(x = reorder(Name,Other_Sales), y = Other_Sales)) + 
+  geom_bar(stat = "identity", fill = "red") + coord_flip()  + 
+  gghighlight::gghighlight(Name %in% c("Grand Theft Auto: San Andreas", "Wii Sports", "Gran Turismo 4")) +  theme(panel.grid.major = element_line(colour = "gray90"),
+    panel.grid.minor = element_line(colour = "gray90"),
+    panel.background = element_rect(fill = NA)) +labs(x = "Videojuegos", y = "Cifra de ventas, en millones de euros") + theme(axis.title = element_text(size = 18),
+    axis.text = element_text(size = 17)) + theme(plot.title = element_text(size = 19,
+    hjust = 0.5)) +labs(title = "Resto de regiones")
+
+
+# para juntar los gráficos no puedo usar face_wrap ya el df cambia, utilizamos el paquete patchwork
+g_videojuegos <- (bb)/(cc+dd)/(ee+ff)
+
+g_videojuegos + plot_annotation(
+  title = "Top 5 juegos más vendidos en cada región") &   theme(text = element_text(size = 23)) 
+```
+
+
+### Desarrolladoras 
+
+Las desarrolladoras hace referencia a las empresas encargadas de elaborar el software del videojuego. Existe una dominancia total de nintendo, siendo la desarrolladora de 7 de los 9 juegos que componen esta lista. Las otros dos desarrolladoras se encuentran con un juego cada una.
+
+```{r, echo=TRUE, eval=TRUE}
+
+#Para poder el gráfica de barras apilado necesito una tercera variable que actue de x, por lo que creo una variable falsa
+
+mas_exitosas_desarrolladoras <- mas_exitosas_desarrolladoras %>% 
+   mutate(x = "Desarrolladora")
+
+
+ graf_des <-  ggplot(mas_exitosas_desarrolladoras, aes(x = x, y = n_desarrolladoras, fill = Publisher)) + geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("#DADAEB", "#9E9AC8", "#6A51A3")) +
+    scale_y_continuous(breaks = seq(0,9,1)) + 
+  theme(panel.grid.major = element_line(colour = "gray90"),
+    panel.grid.minor = element_line(colour = "gray90"),
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 18, colour = "black"),
+    plot.title = element_text(size = 18,
+        hjust = 0.5), panel.background = element_rect(fill = NA)) +labs(title = "Distribución de desarrolladoras en el Top 3 videojuegos de cada región",
+    x = NULL, y = "Número ", fill = "Desarrolladoras") + theme(plot.subtitle = element_text(size = 11,
+    hjust = 0.5)) +labs(title = "Distribución de desarrolladoras ",
+    subtitle = "En el Top 3 videojuegos de cada región")
+ 
+  
+graf_des
+```
+
+
+### Géneros
+
+En el apartado de los géneros existe una moyor homogeneidad. Destacan los géneros de *racing* y *role-playing* con dos juegos cada uno. A el resto de géneros les pertenece un vdeojuego. 
+
+```{r}
+
+#generos Top 3
+
+mas_exitosos_generos <- mas_exitosos_generos %>% 
+   mutate(x = "Género")
+
+ graf_gen <-  ggplot(mas_exitosos_generos, aes(x = x, y = n_generos, fill = Genre)) + geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("#9E3D22", "#CA5621", "#EA7E2E", "#DFCEBA", "#D0D1CA", "#5082B0", "#2B5C8A")) +
+    scale_y_continuous(breaks = seq(0,9,1)) + 
+  theme(panel.grid.major = element_line(colour = "gray90"),
+    panel.grid.minor = element_line(colour = "gray90"),
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 18, colour = "black"),
+    plot.title = element_text(size = 18,
+        hjust = 0.5), panel.background = element_rect(fill = NA)) +labs(title = "Distribución de géneros en el Top 3 videojuegos de cada región",
+    x = NULL, y = "Número ", fill = "Géneros") + theme(plot.subtitle = element_text(size = 11,
+    hjust = 0.5)) +labs(title = "Distribución de géneros ",
+    subtitle = "En el Top 3 videojuegos de cada región")
+ 
+  
+graf_gen
+```
+
+
+
+### Plataformas
+
+Los resultados obtenidos para las plataformas están menos repartidos que en el caso de los géneros, componiendo la lista 5 videoconsolas, 4 de ellas con 2 videojuegos cada una.
+
+```{r}
+
+# plataforma top 3
+
+mas_exitosos_plataforma <- mas_exitosos_plataforma %>% 
+   mutate(x = "Plataforma")
+
+ graf_plat <-  ggplot(mas_exitosos_plataforma, aes(x = x, y = n_plataformas, fill = Platform)) + geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("#A3123A", "#E9514C", "#D5CFBA", "#A1C893", "#59A359")) +
+    scale_y_continuous(breaks = seq(0,9,1)) + 
+  theme(panel.grid.major = element_line(colour = "gray90"),
+    panel.grid.minor = element_line(colour = "gray90"),
+    axis.title = element_text(size = 18),
+    axis.text = element_text(size = 18, colour = "black"),
+    plot.title = element_text(size = 18,
+        hjust = 0.5), panel.background = element_rect(fill = NA)) +labs(title = "Distribución de plataformas en el Top 3 videojuegos de cada región",
+    x = NULL, y = "Número ", fill = "Plataforma") + theme(plot.subtitle = element_text(size = 11,
+    hjust = 0.5)) +labs(title = "Distribución de plataformas ",
+    subtitle = "En el Top 3 videojuegos de cada región")
+ 
+  
+graf_plat
+```
+
+
+## 3.3  Profundizando en géneros y plataformas  {.tabset}
+
+A continuación, puede observarse a partir de dos tablas un análisis más detallado de la importancia que han tenido los distintos géneros y las distintas plataformas en el mercado de los videojuegos.
+
+### Géneros
+
+Los géneros que menor impacto han tenido en el mundo de los videojuegos han sido *Adventure* y *Strategy*, con cifras bajas de ventas y de videojuegos lanzados, pero sobre todo el ratio ventas/número de videojuegos, estando muy por debajo de las siguientes categorias. El género con mayor proporción ventas/número de videojuegos es *Misc*, por lo que puede deducirse que gran parte de sus videojuegos han tenido una buena acogida. Por último, el género que más se ha desarrollado ha sido el de acción, con mayor número de ventas y videojuegos lanzados, pero si analizamos la proporción es el sexto género.
+
+```{r}
+
+#Tabla formada por los géneros
+
+tabla_categorias <- ventas_categoria %>% gt(rowname_col = "Género")
+ 
+ tabla_categorias <- tabla_categorias  %>% tab_header(title = md("**Proporción de ventas por videojuego lanzado de cada género**"),
+ subtitle = md("Ventas en millones de euros")) 
+ 
+ tabla_categorias <- tabla_categorias %>% 
+   data_color(
+     columns = c(Ventas_género, Ventas_por_videojuego, Número_de_videojuegos),
+    colors = blues9)
+
+ tabla_categorias 
+
+```
+
+
+### Plataformas
+
+En relación a las plataformas, tanto la Wii como la PS1 son las consolas con más ventas por videojuego lanzado. Sin embargo, la plataforma que más ha dado de sí es la PS2, con 1161 videojuegos y 962,36 millones de ventas. La plataforma con peores datos es sin duda la PSVita, videoconsola que fue criticada desde su lanzamiento.
+
+```{r}
+
+#Tabla formada por las plataformas
+ tabla_platform <- ventas_platform %>% gt(rowname_col = "Plataforma")
+ 
+ tabla_platform <- tabla_platform  %>% tab_header(title = md("**Proporción de ventas por videojuego lanzado de cada plataforma**"),
+ subtitle = md("Ventas en millones de euros")) 
+ 
+ tabla_platform <- tabla_platform %>% 
+   data_color(
+     columns = c(Ventas_plataforma, Ventas_por_videojuego, Número_de_videojuegos),
+     colors = scales::col_numeric(
+      palette = paletteer::paletteer_d(
+        palette = "ggsci::red_material"
+        ) %>% as.character(),
+      domain = NULL
+      )
+  )
+
+ tabla_platform
+```
+
+
+
+## 3.4 XboxOne vs Ps4 {.tabset}
+
+La competencia entre Xbox y PS es más que conocida. En los últimos años han sido las dos plataformas líderes, luchando por hacerse con la mayor cuota de mercado, vendiendo productos similares, pero siempre con una importante fidelización del cliente a través de la marca. Dicha rivalidad también se dió con la penúltima generación de videoconsolas, estrenandose incluso ambas consolas el mismo mes, con pocos días de diferencia.  
+
+Como muestran los siguientes gráficos, la batalla se ha decantado del lado de PlayStation. En el primer gráfico, en valores absolutos, las ventas de la Ps4 siempre han estado por encima de la XboxOne, existiendo una importnte diferencia, excepto el año de estreno. Por otro lado, en valores relativos, la diferencia también es clara, siendo PlayStation la clara ganadora de esta generación de videoconsolas.
+
+### Valores absolutos
+
+```{r}
+graf_ventas_generaciones <- ggplot(juegos_XboxOne_ps4, aes(x=Year, y=Ventas_totales, fill = Platform)) + geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("black","green")) + 
+   scale_x_continuous(breaks = seq(2013,2018,1)) + 
+    scale_y_continuous(breaks = seq(0,240,25))  + theme(panel.grid.major = element_line(colour = "gray90"),
+    panel.grid.minor = element_line(colour = NA),
+    axis.title = element_text(size = 13),
+    axis.text = element_text(size = 13, colour = "black"),
+    plot.title = element_text(size = 16,
+        hjust = 0.5), legend.text = element_text(size = 13),
+    legend.title = element_text(size = 13),
+    panel.background = element_rect(fill = NA),
+    legend.position = "bottom", legend.direction = "horizontal") +labs(title = "Ventas globales de Ps4 y XboxOne",
+    x = "Año", y = "Cifra de ventas, en millones de euros",
+    fill = "Plataforma") + theme(legend.position = "right")
+
+
+
+ ggplotly(graf_ventas_generaciones)
+
+
+```
+
+
+### Valores relativos
+
+```{r}
+graf_ventas_porcentuales <- ggplot(ventas_totales_plataforma, aes(x = "", y = porcentaje, fill = Platform)) + 
+  geom_col(color = "white") + 
+  scale_fill_manual(values = c("black", "green")) + 
+  geom_label(aes(label = porcentaje),
+             color = "white",
+             position = position_stack(vjust = 0.5),
+             show.legend = FALSE) + theme_void() +
+  coord_polar(theta = "y")  + theme(plot.subtitle = element_text(size = 15,
+    colour = "black", hjust = 0.5), panel.grid.major = element_line(colour = NA,
+    size = 0), axis.title = element_text(size = 15),
+    axis.text = element_text(size = 14, colour = "white"),
+    plot.title = element_text(size = 16,
+        hjust = 0.5), legend.title = element_text(size = 13),
+    panel.background = element_rect(fill = NA),
+    legend.position = "left") +labs(title = "Distribución de las ventas totales",
+    x = NULL, y = "Ventas", fill = "Plataforma",
+    subtitle = "entre 2013 y 2018") + theme(legend.text = element_text(size = 11))
+
+graf_ventas_porcentuales
+```
+
+
+
+# **4. Bibliografia**
+
+[Web del curso](https://perezp44.github.io/intro-ds-21-22-web/) para la elaboración del trabajo.  
+
+[Dataset](https://www.kaggle.com/sidtwr/videogames-sales-dataset) utilizado.  
+
+
+
+
